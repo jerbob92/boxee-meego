@@ -1,0 +1,658 @@
+Based on the following revisions:
+EGLIBC 2.11.2 (r12755)
+diff -dur /tmp/tmp.7bwWo3hpts/ChangeLog eglibc/ChangeLog
+--- /tmp/tmp.7bwWo3hpts/ChangeLog	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/ChangeLog	2012-05-08 13:53:55.752226444 -0700
+@@ -1,3 +1,36 @@
++2011-05-11  Ulrich Drepper  <drepper@gmail.com>
++
++	[BZ #12393]
++	* elf/dl-load.c (is_trusted_path): Remove unnecessary test.
++	(is_trusted_path_normalize): Skip initial colon.  Append slash
++	to empty buffer.  Duplicate is_trusted_path code but allow
++	constructed patch to be prefix.
++	(is_dst): Allow $ORIGIN followed by /.
++	(_dl_dst_substitute): Correct clearing of check_for_trusted.
++	Correct testing of result of is_trusted_path_normalize
++	(decompose_rpath): Fix warning.
++
++2011-05-07  Petr Baudis  <pasky@suse.cz>
++	    Ulrich Drepper  <drepper@gmail.com>
++
++	[BZ #12393]
++	* elf/dl-load.c (fillin_rpath): Move trusted path check...
++	(is_trusted_path): ...to here.
++	(is_norm_trusted_path): Add wrapper for /../ and /./ normalization.
++	(_dl_dst_substitute): Verify expanded $ORIGIN path elements
++	using is_norm_trusted_path() in setuid scripts.
++
++2011-03-14  Andreas Schwab  <schwab@redhat.com>
++
++	* elf/dl-load.c (_dl_dst_substitute): When skipping the first
++	rpath element also skip the following colon.
++	(expand_dynamic_string_token): Add is_path parameter and pass
++	down to DL_DST_REQUIRED and _dl_dst_substitute.
++	(decompose_rpath): Call expand_dynamic_string_token with
++	non-zero is_path.  Ignore empty rpaths.
++	(_dl_map_object_from_fd): Call expand_dynamic_string_token
++	with zero is_path.
++
+ 2010-12-13  Andreas Schwab  <schwab@redhat.com>
+ 
+ 	* version.h (VERSION): Bump for 2.12.2 release.
+diff -dur /tmp/tmp.7bwWo3hpts/csu/Makefile eglibc/csu/Makefile
+--- /tmp/tmp.7bwWo3hpts/csu/Makefile	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/csu/Makefile	2012-05-08 13:53:55.812227530 -0700
+@@ -236,8 +236,10 @@
+ 		   if [ -z "$$os" ]; then \
+ 		     os=Linux; \
+ 		   fi; \
+-		   printf '"Compiled on a %s %s system on %s.\\n"\n' \
+-			  "$$os" "$$version" "`date +%Y-%m-%d`";; \
++		   # GOOGLE LOCAL: removed 'on %s' and '"`date +%Y-%m-%d`"' \
++		   # to enable bit-identical rebuilds \
++		   printf '"Compiled on a %s %s system.\\n"\n' \
++			  "$$os" "$$version";; \
+ 	   *) ;; \
+ 	 esac; \
+ 	 files="$(all-Banner-files)";				\
+diff -dur /tmp/tmp.7bwWo3hpts/elf/dl-load.c eglibc/elf/dl-load.c
+--- /tmp/tmp.7bwWo3hpts/elf/dl-load.c	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/elf/dl-load.c	2012-05-08 13:53:55.822227711 -0700
+@@ -1,5 +1,5 @@
+ /* Map in a shared object's segments from the file.
+-   Copyright (C) 1995-2005, 2006, 2007, 2009, 2010 Free Software Foundation, Inc.
++   Copyright (C) 1995-2007, 2009, 2010, 2011 Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+ 
+    The GNU C Library is free software; you can redistribute it and/or
+@@ -168,6 +168,87 @@
+ }
+ 
+ 
++static bool
++is_trusted_path (const char *path, size_t len)
++{
++  const char *trun = system_dirs;
++
++  for (size_t idx = 0; idx < nsystem_dirs_len; ++idx)
++    {
++      if (len == system_dirs_len[idx] && memcmp (trun, path, len) == 0)
++	/* Found it.  */
++	return true;
++
++      trun += system_dirs_len[idx] + 1;
++    }
++
++  return false;
++}
++
++
++static bool
++is_trusted_path_normalize (const char *path, size_t len)
++{
++  if (len == 0)
++    return false;
++
++  if (*path == ':')
++    {
++      ++path;
++      --len;
++    }
++
++  char *npath = (char *) alloca (len + 2);
++  char *wnp = npath;
++  while (*path != '\0')
++    {
++      if (path[0] == '/')
++	{
++	  if (path[1] == '.')
++	    {
++	      if (path[2] == '.' && (path[3] == '/' || path[3] == '\0'))
++		{
++		  while (wnp > npath && *--wnp != '/')
++		    ;
++		  path += 3;
++		  continue;
++		}
++	      else if (path[2] == '/' || path[2] == '\0')
++		{
++		  path += 2;
++		  continue;
++		}
++	    }
++
++	  if (wnp > npath && wnp[-1] == '/')
++	    {
++	      ++path;
++	      continue;
++	    }
++	}
++
++      *wnp++ = *path++;
++    }
++
++  if (wnp == npath || wnp[-1] != '/')
++    *wnp++ = '/';
++
++  const char *trun = system_dirs;
++
++  for (size_t idx = 0; idx < nsystem_dirs_len; ++idx)
++    {
++      if (wnp - npath >= system_dirs_len[idx]
++	  && memcmp (trun, npath, system_dirs_len[idx]) == 0)
++	/* Found it.  */
++	return true;
++
++      trun += system_dirs_len[idx] + 1;
++    }
++
++  return false;
++}
++
++
+ static size_t
+ is_dst (const char *start, const char *name, const char *str,
+ 	int is_path, int secure)
+@@ -200,7 +281,8 @@
+     return 0;
+ 
+   if (__builtin_expect (secure, 0)
+-      && ((name[len] != '\0' && (!is_path || name[len] != ':'))
++      && ((name[len] != '\0' && name[len] != '/'
++	   && (!is_path || name[len] != ':'))
+ 	  || (name != start + 1 && (!is_path || name[-2] != ':'))))
+     return 0;
+ 
+@@ -240,13 +322,14 @@
+ 		    int is_path)
+ {
+   const char *const start = name;
+-  char *last_elem, *wp;
+ 
+   /* Now fill the result path.  While copying over the string we keep
+      track of the start of the last path element.  When we come accross
+      a DST we copy over the value or (if the value is not available)
+      leave the entire path element out.  */
+-  last_elem = wp = result;
++  char *wp = result;
++  char *last_elem = result;
++  bool check_for_trusted = false;
+ 
+   do
+     {
+@@ -265,6 +348,9 @@
+ 	      else
+ #endif
+ 		repl = l->l_origin;
++
++	      check_for_trusted = (INTUSE(__libc_enable_secure)
++				   && l->l_type == lt_executable);
+ 	    }
+ 	  else if ((len = is_dst (start, name, "PLATFORM", is_path, 0)) != 0)
+ 	    repl = GLRO(dl_platform);
+@@ -284,6 +370,10 @@
+ 	      name += len;
+ 	      while (*name != '\0' && (!is_path || *name != ':'))
+ 		++name;
++	      /* Also skip following colon if this is the first rpath
++		 element, but keep an empty element at the end.  */
++	      if (wp == result && is_path && *name == ':' && name[1] != '\0')
++		++name;
+ 	    }
+ 	  else
+ 	    /* No DST we recognize.  */
+@@ -293,11 +383,28 @@
+ 	{
+ 	  *wp++ = *name++;
+ 	  if (is_path && *name == ':')
+-	    last_elem = wp;
++	    {
++	      /* In SUID/SGID programs, after $ORIGIN expansion the
++		 normalized path must be rooted in one of the trusted
++		 directories.  */
++	      if (__builtin_expect (check_for_trusted, false)
++		  && !is_trusted_path_normalize (last_elem, wp - last_elem))
++		wp = last_elem;
++	      else
++		last_elem = wp;
++
++	      check_for_trusted = false;
++	    }
+ 	}
+     }
+   while (*name != '\0');
+ 
++  /* In SUID/SGID programs, after $ORIGIN expansion the normalized
++     path must be rooted in one of the trusted directories.  */
++  if (__builtin_expect (check_for_trusted, false)
++      && !is_trusted_path_normalize (last_elem, wp - last_elem))
++    wp = last_elem;
++
+   *wp = '\0';
+ 
+   return result;
+@@ -310,7 +417,7 @@
+    belonging to the map is loaded.  In this case the path element
+    containing $ORIGIN is left out.  */
+ static char *
+-expand_dynamic_string_token (struct link_map *l, const char *s)
++expand_dynamic_string_token (struct link_map *l, const char *s, int is_path)
+ {
+   /* We make two runs over the string.  First we determine how large the
+      resulting string is and then we copy it over.  Since this is no
+@@ -321,7 +428,7 @@
+   char *result;
+ 
+   /* Determine the number of DST elements.  */
+-  cnt = DL_DST_COUNT (s, 1);
++  cnt = DL_DST_COUNT (s, is_path);
+ 
+   /* If we do not have to replace anything simply copy the string.  */
+   if (__builtin_expect (cnt, 0) == 0)
+@@ -335,7 +442,7 @@
+   if (result == NULL)
+     return NULL;
+ 
+-  return _dl_dst_substitute (l, s, result, 1);
++  return _dl_dst_substitute (l, s, result, is_path);
+ }
+ 
+ 
+@@ -407,33 +514,8 @@
+ 	cp[len++] = '/';
+ 
+       /* Make sure we don't use untrusted directories if we run SUID.  */
+-      if (__builtin_expect (check_trusted, 0))
+-	{
+-	  const char *trun = system_dirs;
+-	  size_t idx;
+-	  int unsecure = 1;
+-
+-	  /* All trusted directories must be complete names.  */
+-	  if (cp[0] == '/')
+-	    {
+-	      for (idx = 0; idx < nsystem_dirs_len; ++idx)
+-		{
+-		  if (len == system_dirs_len[idx]
+-		      && memcmp (trun, cp, len) == 0)
+-		    {
+-		      /* Found it.  */
+-		      unsecure = 0;
+-		      break;
+-		    }
+-
+-		  trun += system_dirs_len[idx] + 1;
+-		}
+-	    }
+-
+-	  if (unsecure)
+-	    /* Simply drop this directory.  */
+-	    continue;
+-	}
++      if (__builtin_expect (check_trusted, 0) && !is_trusted_path (cp, len))
++	continue;
+ 
+       /* See if this directory is already known.  */
+       for (dirp = GL(dl_all_dirs); dirp != NULL; dirp = dirp->next)
+@@ -551,13 +633,21 @@
+ 
+   /* Make a writable copy.  At the same time expand possible dynamic
+      string tokens.  */
+-  copy = expand_dynamic_string_token (l, rpath);
++  copy = expand_dynamic_string_token (l, rpath, 1);
+   if (copy == NULL)
+     {
+       errstring = N_("cannot create RUNPATH/RPATH copy");
+       goto signal_error;
+     }
+ 
++  /* Ignore empty rpaths.  */
++  if (*copy == 0)
++    {
++      free (copy);
++      sps->dirs = (struct r_search_path_elem **) -1;
++      return false;
++    }
++
+   /* Count the number of necessary elements in the result array.  */
+   nelems = 0;
+   for (cp = copy; *cp != '\0'; ++cp)
+@@ -2176,7 +2266,7 @@
+     {
+       /* The path may contain dynamic string tokens.  */
+       realname = (loader
+-		  ? expand_dynamic_string_token (loader, name)
++		  ? expand_dynamic_string_token (loader, name, 0)
+ 		  : local_strdup (name));
+       if (realname == NULL)
+ 	fd = -1;
+diff -dur /tmp/tmp.7bwWo3hpts/elf/Makefile eglibc/elf/Makefile
+--- /tmp/tmp.7bwWo3hpts/elf/Makefile	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/elf/Makefile	2012-05-08 13:53:55.822227711 -0700
+@@ -149,7 +149,7 @@
+ others		= sprof sln
+ install-bin	= sprof
+ others-static   = sln
+-install-rootsbin = sln
++# install-rootsbin = sln
+ 
+ ifeq (yes,$(use-ldconfig))
+ ifeq (yes,$(build-shared))
+@@ -160,6 +160,14 @@
+ ldconfig-modules := cache readlib xmalloc xstrdup chroot_canon
+ extra-objs	+= $(ldconfig-modules:=.o)
+ 
++ifeq (yes,$(build-static-nss))
++# This fixes a bunch of unresolved (e.g. _nss_files_getaliasent_r,
++# _nss_files_endaliasent, _nss_dns_gethostbyname2_r,  etc.)
++# while (statically) linking ldconfig.
++static-gnulib += $(objdir)/nss/libnss_files.a $(objdir)/resolv/libnss_dns.a \
++	$(objdir)/resolv/libresolv.a
++endif
++
+ # To find xmalloc.c and xstrdup.c
+ vpath %.c ../locale/programs
+ 
+diff -dur /tmp/tmp.7bwWo3hpts/hesiod/Makefile eglibc/hesiod/Makefile
+--- /tmp/tmp.7bwWo3hpts/hesiod/Makefile	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/hesiod/Makefile	2012-05-08 13:53:55.842228073 -0700
+@@ -25,7 +25,7 @@
+ 
+ distribute := hesiod.h hesiod_p.h README.hesiod nss_hesiod/nss_hesiod.h
+ 
+-extra-libs-$(OPTION_EGLIBC_INET) += libnss_hesiod
++# extra-libs-$(OPTION_EGLIBC_INET) += libnss_hesiod
+ extra-libs-others-y += $(extra-libs-y)
+ 
+ subdir-dirs = nss_hesiod
+diff -dur /tmp/tmp.7bwWo3hpts/iconv/Makefile eglibc/iconv/Makefile
+--- /tmp/tmp.7bwWo3hpts/iconv/Makefile	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/iconv/Makefile	2012-05-08 13:53:55.852228254 -0700
+@@ -59,7 +59,7 @@
+ 
+ others		= iconv_prog iconvconfig
+ install-others-programs	= $(inst_bindir)/iconv
+-install-sbin	= iconvconfig
++# install-sbin	= iconvconfig
+ 
+ CFLAGS-gconv_cache.c += -DGCONV_DIR='"$(gconvdir)"'
+ CFLAGS-gconv_conf.c = -DGCONV_PATH='"$(gconvdir)"'
+diff -dur /tmp/tmp.7bwWo3hpts/include/alloca.h eglibc/include/alloca.h
+--- /tmp/tmp.7bwWo3hpts/include/alloca.h	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/include/alloca.h	2012-05-08 13:53:55.992230788 -0700
+@@ -15,7 +15,7 @@
+ extern int __libc_use_alloca (size_t size) __attribute__ ((const));
+ extern int __libc_alloca_cutoff (size_t size) __attribute__ ((const));
+ 
+-#define __MAX_ALLOCA_CUTOFF	65536
++#define __MAX_ALLOCA_CUTOFF	8192
+ 
+ #include <allocalim.h>
+ 
+diff -dur /tmp/tmp.7bwWo3hpts/Makerules eglibc/Makerules
+--- /tmp/tmp.7bwWo3hpts/Makerules	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/Makerules	2012-05-08 13:53:55.792227168 -0700
+@@ -1040,9 +1040,9 @@
+ 	 echo '   Use the shared library, but some functions are only in';\
+ 	 echo '   the static library, so try that secondarily.  */';\
+ 	 cat $<; \
+-	 echo 'GROUP ( $(slibdir)/libc.so$(libc.so-version)' \
+-	      '$(libdir)/$(patsubst %,$(libtype.oS),$(libprefix)$(libc-name))'\
+-	      ' AS_NEEDED (' $(slibdir)/$(rtld-installed-name) ') )' \
++	 echo 'GROUP ( libc.so$(libc.so-version)' \
++	      '$(patsubst %,$(libtype.oS),$(libprefix)$(libc-name))'\
++	      ' AS_NEEDED (' $(rtld-installed-name) ') )' \
+ 	) > $@.new
+ 	mv -f $@.new $@
+ 
+diff -dur /tmp/tmp.7bwWo3hpts/nptl/Makefile eglibc/nptl/Makefile
+--- /tmp/tmp.7bwWo3hpts/nptl/Makefile	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/nptl/Makefile	2012-05-08 13:53:56.222234951 -0700
+@@ -121,7 +121,7 @@
+ 		      pthread_attr_getaffinity pthread_attr_setaffinity \
+ 		      pthread_mutexattr_getrobust pthread_mutexattr_setrobust \
+ 		      pthread_mutex_consistent \
+-		      cleanup_routine unwind-forcedunwind \
++		      cleanup_routine \
+ 		      pthread_mutexattr_getprotocol \
+ 		      pthread_mutexattr_setprotocol \
+ 		      pthread_mutexattr_getprioceiling \
+@@ -136,7 +136,7 @@
+ 
+ libpthread-routines-$(OPTION_EGLIBC_INET) := herrno res 
+ 
+-libpthread-shared-only-routines = version pt-allocrtsig unwind-forcedunwind
++libpthread-shared-only-routines = version pt-allocrtsig
+ libpthread-static-only-routines = pthread_atfork
+ 
+ CFLAGS-pthread_atfork.c = -DNOT_IN_libc
+@@ -403,8 +403,8 @@
+ 	 echo '   Use the shared library, but some functions are only in';\
+ 	 echo '   the static library, so try that secondarily.  */';\
+ 	 cat $<; \
+-	 echo 'GROUP ( $(slibdir)/libpthread.so$(libpthread.so-version)' \
+-	      '$(libdir)/$(patsubst %,$(libtype.oS),$(libprefix)pthread)'\
++	 echo 'GROUP ( libpthread.so$(libpthread.so-version)' \
++	      '$(patsubst %,$(libtype.oS),$(libprefix)pthread)'\
+ 	      ')' \
+ 	) > $@.new
+ 	mv -f $@.new $@
+diff -dur /tmp/tmp.7bwWo3hpts/nptl/pthreadP.h eglibc/nptl/pthreadP.h
+--- /tmp/tmp.7bwWo3hpts/nptl/pthreadP.h	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/nptl/pthreadP.h	2012-05-08 13:53:56.232235132 -0700
+@@ -246,8 +246,8 @@
+ hidden_proto (__pthread_register_cancel)
+ hidden_proto (__pthread_unregister_cancel)
+ # ifdef SHARED
+-extern void attribute_hidden pthread_cancel_init (void);
+-extern void __unwind_freeres (void);
++static inline void pthread_cancel_init (void) {}
++static inline void __unwind_freeres (void) {}
+ # endif
+ #endif
+ 
+diff -dur /tmp/tmp.7bwWo3hpts/ports/sysdeps/arm/eabi/aeabi_unwind_cpp_pr1.c eglibc/ports/sysdeps/arm/eabi/aeabi_unwind_cpp_pr1.c
+--- /tmp/tmp.7bwWo3hpts/ports/sysdeps/arm/eabi/aeabi_unwind_cpp_pr1.c	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/ports/sysdeps/arm/eabi/aeabi_unwind_cpp_pr1.c	2012-05-08 13:53:56.332236942 -0700
+@@ -25,6 +25,7 @@
+ #include <stdlib.h>
+ 
+ attribute_hidden
++__attribute__ ((weak))
+ void
+ __aeabi_unwind_cpp_pr0 (void)
+ {
+@@ -34,6 +35,7 @@
+ }
+ 
+ attribute_hidden
++__attribute__ ((weak))
+ void
+ __aeabi_unwind_cpp_pr1 (void)
+ {
+@@ -43,6 +45,7 @@
+ }
+ 
+ attribute_hidden
++__attribute__ ((weak))
+ void
+ __aeabi_unwind_cpp_pr2 (void)
+ {
+diff -dur /tmp/tmp.7bwWo3hpts/posix/glob.c eglibc/posix/glob.c
+--- /tmp/tmp.7bwWo3hpts/posix/glob.c	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/posix/glob.c	2012-05-08 13:53:56.442238933 -0700
+@@ -132,15 +132,6 @@
+   CONVERT_D_TYPE (d64, d32)
+ #endif
+ 
+-
+-#if (defined POSIX || defined WINDOWS32) && !defined __GNU_LIBRARY__
+-/* Posix does not require that the d_ino field be present, and some
+-   systems do not provide it. */
+-# define REAL_DIR_ENTRY(dp) 1
+-#else
+-# define REAL_DIR_ENTRY(dp) (dp->d_ino != 0)
+-#endif /* POSIX */
+-
+ #include <stdlib.h>
+ #include <string.h>
+ 
+@@ -1389,8 +1380,6 @@
+ #endif
+ 	      if (d == NULL)
+ 		break;
+-	      if (! REAL_DIR_ENTRY (d))
+-		continue;
+ 
+ 	      /* If we shall match only directories use the information
+ 		 provided by the dirent call if possible.  */
+diff -dur /tmp/tmp.7bwWo3hpts/resolv/res_libc.c eglibc/resolv/res_libc.c
+--- /tmp/tmp.7bwWo3hpts/resolv/res_libc.c	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/resolv/res_libc.c	2012-05-08 13:53:56.462239295 -0700
+@@ -28,6 +28,7 @@
+    out) since res_init() should go into libc.so but the rest of that
+    file should not.  */
+ 
++__libc_lock_define_initialized (static, lock);
+ extern unsigned long long int __res_initstamp attribute_hidden;
+ /* We have atomic increment operations on 64-bit platforms.  */
+ #if __WORDSIZE == 64
+@@ -35,7 +36,6 @@
+ # define atomicincunlock(lock) (void) 0
+ # define atomicinc(var) catomic_increment (&(var))
+ #else
+-__libc_lock_define_initialized (static, lock);
+ # define atomicinclock(lock) __libc_lock_lock (lock)
+ # define atomicincunlock(lock) __libc_lock_unlock (lock)
+ # define atomicinc(var) ++var
+@@ -100,10 +100,13 @@
+ 
+ 	if (resp->options & RES_INIT) {
+ 		ret = stat (_PATH_RESCONF, &statbuf);
+-		if ((__res_initstamp != resp->_u._ext.initstamp)
+-		    || ((ret == 0) && (last_mtime != statbuf.st_mtime))) {
+-			if (ret == 0)
+-				last_mtime = statbuf.st_mtime;
++		__libc_lock_lock (lock);
++		if ((ret == 0) && (last_mtime != statbuf.st_mtime)) {
++			last_mtime = statbuf.st_mtime;
++			atomicinc (__res_initstamp);
++		}
++		__libc_lock_unlock (lock);
++		if (__res_initstamp != resp->_u._ext.initstamp) {
+ 			if (resp->nscount > 0)
+ 				__res_iclose (resp, true);
+ 			return __res_vinit (resp, 1);
+diff -dur /tmp/tmp.7bwWo3hpts/sunrpc/Makefile eglibc/sunrpc/Makefile
+--- /tmp/tmp.7bwWo3hpts/sunrpc/Makefile	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/sunrpc/Makefile	2012-05-08 13:53:56.512240200 -0700
+@@ -76,7 +76,7 @@
+ 
+ others-$(OPTION_EGLIBC_SUNRPC) += rpcinfo
+ install-bin-$(OPTION_EGLIBC_SUNRPC) += rpcgen
+-install-sbin-$(OPTION_EGLIBC_SUNRPC) += rpcinfo
++# install-sbin-$(OPTION_EGLIBC_SUNRPC) += rpcinfo
+ rpcgen-objs = rpc_main.o rpc_hout.o rpc_cout.o rpc_parse.o \
+ 	      rpc_scan.o rpc_util.o rpc_svcout.o rpc_clntout.o \
+ 	      rpc_tblout.o rpc_sample.o
+@@ -144,11 +144,11 @@
+ 	$(+link)
+ 
+ $(addprefix $(objpfx)cross-,$(rpcgen-objs)): $(objpfx)cross-%.o: %.c
+-	gcc $< -c -D_RPC_THREAD_SAFE_ -D_CROSS_RPCGEN_ \
++	$(BUILD_CC) $< -c -D_RPC_THREAD_SAFE_ -D_CROSS_RPCGEN_ \
+ 		$(OUTPUT_OPTION) $(compile-mkdep-flags)
+ 
+ $(objpfx)cross-rpcgen: $(addprefix $(objpfx)cross-,$(rpcgen-objs))
+-	gcc $^ -o $@
++	$(BUILD_CC) $^ -o $@
+ 
+ # This makes sure -DNOT_IN_libc is passed for all these modules.
+ cpp-srcs-left := $(rpcgen-objs:.o=.c)
+diff -dur /tmp/tmp.7bwWo3hpts/sysdeps/gnu/errlist-compat.awk eglibc/sysdeps/gnu/errlist-compat.awk
+--- /tmp/tmp.7bwWo3hpts/sysdeps/gnu/errlist-compat.awk	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/sysdeps/gnu/errlist-compat.awk	2012-05-08 13:53:56.532240562 -0700
+@@ -85,7 +85,11 @@
+     printf "#define ERR_MAX %d\n\n", highest;
+   }
+ 
+-  for (old in compat) {
++  # Use indices in sorted order to keep generated source (and binary) the
++  # same regardless of awk's ordering of the associative array.
++  num_compat_elems = asorti(compat, compat_indices)
++  for (i = 1; i <= num_compat_elems; i++) {
++    old = compat_indices[i]
+     new = compat[old];
+     n = vcount[old];
+     printf "#if SHLIB_COMPAT (libc, %s, %s)\n", old, new;
+diff -dur /tmp/tmp.7bwWo3hpts/sysdeps/i386/Makefile eglibc/sysdeps/i386/Makefile
+--- /tmp/tmp.7bwWo3hpts/sysdeps/i386/Makefile	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/sysdeps/i386/Makefile	2012-05-08 13:53:56.532240562 -0700
+@@ -51,6 +51,7 @@
+ # And a couple of other routines
+ ifeq ($(subdir),stdlib)
+ CFLAGS-exit.c += -mpreferred-stack-boundary=4
++CFLAGS-cxa_finalize.c += -mpreferred-stack-boundary=4
+ endif
+ ifeq ($(subdir),elf)
+ CFLAGS-dl-init.c += -mpreferred-stack-boundary=4
+diff -dur /tmp/tmp.7bwWo3hpts/sysdeps/unix/readdir.c eglibc/sysdeps/unix/readdir.c
+--- /tmp/tmp.7bwWo3hpts/sysdeps/unix/readdir.c	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/sysdeps/unix/readdir.c	2012-05-08 13:53:56.722244001 -0700
+@@ -107,9 +107,7 @@
+ #else
+       dirp->filepos += reclen;
+ #endif
+-
+-      /* Skip deleted files.  */
+-    } while (dp->d_ino == 0);
++    } while (0);
+ 
+ #ifndef NOT_IN_libc
+   __libc_lock_unlock (dirp->lock);
+diff -dur /tmp/tmp.7bwWo3hpts/sysdeps/unix/readdir_r.c eglibc/sysdeps/unix/readdir_r.c
+--- /tmp/tmp.7bwWo3hpts/sysdeps/unix/readdir_r.c	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/sysdeps/unix/readdir_r.c	2012-05-08 13:53:56.722244001 -0700
+@@ -107,10 +107,8 @@
+ #else
+       dirp->filepos += reclen;
+ #endif
+-
+-      /* Skip deleted files.  */
+     }
+-  while (dp->d_ino == 0);
++  while (0);
+ 
+   if (dp != NULL)
+     {
+diff -dur /tmp/tmp.7bwWo3hpts/sysdeps/unix/sysv/linux/check_pf.c eglibc/sysdeps/unix/sysv/linux/check_pf.c
+--- /tmp/tmp.7bwWo3hpts/sysdeps/unix/sysv/linux/check_pf.c	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/sysdeps/unix/sysv/linux/check_pf.c	2012-05-08 13:53:56.722244001 -0700
+@@ -176,7 +176,8 @@
+ 		    }
+ 		  else
+ 		    {
+-		      if (!IN6_IS_ADDR_LOOPBACK (address))
++		      if (!IN6_IS_ADDR_LOOPBACK (address) &&
++			  !IN6_IS_ADDR_LINKLOCAL (address))
+ 			*seen_ipv6 = true;
+ 		    }
+ 		}
+diff -dur /tmp/tmp.7bwWo3hpts/timezone/Makefile eglibc/timezone/Makefile
+--- /tmp/tmp.7bwWo3hpts/timezone/Makefile	2011-02-06 20:16:17.000000000 -0800
++++ eglibc/timezone/Makefile	2012-05-08 13:53:56.802245449 -0700
+@@ -181,11 +181,11 @@
+ $(objpfx)zic: $(addprefix $(objpfx), $(zic-objs))
+ 
+ $(addprefix $(objpfx)cross-,$(zic-objs)): $(objpfx)cross-%.o: %.c
+-	gcc $< -c $(OUTPUT_OPTION) $(CFLAGS-$*.c) $(CPPFLAGS-$*) \
++	$(BUILD_CC) $< -c $(OUTPUT_OPTION) $(CFLAGS-$*.c) $(CPPFLAGS-$*) \
+ 		-DCROSS_ZIC $(compile-mkdep-flags)
+ 
+ $(objpfx)cross-zic: $(addprefix $(objpfx)cross-,$(zic-objs))
+-	gcc $(addprefix $(objpfx)cross-,$(zic-objs)) -o $@
++	$(BUILD_CC) $(addprefix $(objpfx)cross-,$(zic-objs)) -o $@
+ 
+ tz-cflags = -DTZDIR='"$(zonedir)"' \
+ 	    -DTZDEFAULT='"$(localtime-file)"' \

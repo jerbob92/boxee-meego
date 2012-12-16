@@ -1,0 +1,56 @@
+Based on the following revisions:
+Add file missing from 7.2 release tarball (pulled from upstream).
+GDB 7.2
+diff -dur /tmp/tmp.1wxjcBe9dL/bfd/Makefile.in gdb/bfd/Makefile.in
+--- /tmp/tmp.1wxjcBe9dL/bfd/Makefile.in	2011-01-26 19:45:31.000000000 -0800
++++ gdb/bfd/Makefile.in	2012-05-08 13:54:01.892337578 -0700
+@@ -123,7 +123,7 @@
+ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+ 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+-CCLD = $(CC)
++CCLD ?= $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+ 	$(LDFLAGS) -o $@
+diff -dur /tmp/tmp.1wxjcBe9dL/gdb/gdbserver/linux-arm-low.c gdb/gdb/gdbserver/linux-arm-low.c
+--- /tmp/tmp.1wxjcBe9dL/gdb/gdbserver/linux-arm-low.c	2011-01-26 19:45:31.000000000 -0800
++++ gdb/gdb/gdbserver/linux-arm-low.c	2012-05-08 13:54:02.172342646 -0700
+@@ -312,6 +312,13 @@
+       return;
+     }
+ 
++  /* gdbserver assumes that only one of VFP or IWMMXT is available, which may
++     not be true.  In that case, gdbserver fails at run-time with "Unknown
++     register d0 requested".  For now, pretend IWMMXT is missing when both are
++     available. */
++  if ((arm_hwcap & HWCAP_VFP) && (arm_hwcap & HWCAP_IWMMXT))
++      arm_hwcap &= ~HWCAP_IWMMXT;
++
+   if (arm_hwcap & HWCAP_IWMMXT)
+     {
+       init_registers_arm_with_iwmmxt ();
+diff -dur /tmp/tmp.1wxjcBe9dL/gdb/Makefile.in gdb/gdb/Makefile.in
+--- /tmp/tmp.1wxjcBe9dL/gdb/Makefile.in	2011-01-26 19:45:31.000000000 -0800
++++ gdb/gdb/Makefile.in	2012-05-08 13:54:02.082341017 -0700
+@@ -117,7 +117,7 @@
+ # Set this up with gcc if you have gnu ld and the loader will print out
+ # line numbers for undefined references.
+ #CC_LD=gcc -static
+-CC_LD=$(CC)
++CC_LD ?= $(CC)
+ 
+ # Where is our "include" directory?  Typically $(srcdir)/../include.
+ # This is essentially the header file directory for the library
+diff -dur /tmp/tmp.1wxjcBe9dL/opcodes/Makefile.in gdb/opcodes/Makefile.in
+--- /tmp/tmp.1wxjcBe9dL/opcodes/Makefile.in	2011-01-26 19:45:31.000000000 -0800
++++ gdb/opcodes/Makefile.in	2012-05-08 13:54:02.452347714 -0700
+@@ -112,7 +112,7 @@
+ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+ 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+-CCLD = $(CC)
++CCLD ?= $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+ 	$(LDFLAGS) -o $@

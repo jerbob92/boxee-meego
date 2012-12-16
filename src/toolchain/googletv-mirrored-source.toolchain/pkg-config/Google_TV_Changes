@@ -1,0 +1,444 @@
+Based on the following revisions:
+pkg-config 0.25
+diff -dur /tmp/tmp.mm1UzS0l5J/configure pkg-config/configure
+--- /tmp/tmp.mm1UzS0l5J/configure	2011-03-24 10:03:25.000000000 -0700
++++ pkg-config/configure	2012-05-08 13:54:03.052358574 -0700
+@@ -757,6 +757,7 @@
+ PKG_CONFIG
+ use_indirect_deps
+ WARN_CFLAGS
++pc_sysroot
+ pc_path
+ CPP
+ OTOOL64
+@@ -878,6 +879,7 @@
+ with_gnu_ld
+ enable_libtool_lock
+ with_pc_path
++with_sysroot
+ enable_indirect_deps
+ with_installed_glib
+ with_installed_popt
+@@ -1528,6 +1530,7 @@
+                           both]
+   --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
+   --with-pc-path          Override the default search path for .pc files
++  --with-sysroot          Override the default sysroot
+   --with-installed-glib   Use installed Glib-2.x
+   --with-installed-popt   use installed popt library
+ 
+@@ -4508,13 +4511,13 @@
+ else
+   lt_cv_nm_interface="BSD nm"
+   echo "int some_variable = 0;" > conftest.$ac_ext
+-  (eval echo "\"\$as_me:4511: $ac_compile\"" >&5)
++  (eval echo "\"\$as_me:4514: $ac_compile\"" >&5)
+   (eval "$ac_compile" 2>conftest.err)
+   cat conftest.err >&5
+-  (eval echo "\"\$as_me:4514: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
++  (eval echo "\"\$as_me:4517: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
+   (eval "$NM \"conftest.$ac_objext\"" 2>conftest.err > conftest.out)
+   cat conftest.err >&5
+-  (eval echo "\"\$as_me:4517: output\"" >&5)
++  (eval echo "\"\$as_me:4520: output\"" >&5)
+   cat conftest.out >&5
+   if $GREP 'External.*some_variable' conftest.out > /dev/null; then
+     lt_cv_nm_interface="MS dumpbin"
+@@ -5720,7 +5723,7 @@
+   ;;
+ *-*-irix6*)
+   # Find out which ABI we are using.
+-  echo '#line 5723 "configure"' > conftest.$ac_ext
++  echo '#line 5726 "configure"' > conftest.$ac_ext
+   if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_compile\""; } >&5
+   (eval $ac_compile) 2>&5
+   ac_status=$?
+@@ -7246,11 +7249,11 @@
+    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
+    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
+    -e 's:$: $lt_compiler_flag:'`
+-   (eval echo "\"\$as_me:7249: $lt_compile\"" >&5)
++   (eval echo "\"\$as_me:7252: $lt_compile\"" >&5)
+    (eval "$lt_compile" 2>conftest.err)
+    ac_status=$?
+    cat conftest.err >&5
+-   echo "$as_me:7253: \$? = $ac_status" >&5
++   echo "$as_me:7256: \$? = $ac_status" >&5
+    if (exit $ac_status) && test -s "$ac_outfile"; then
+      # The compiler can only warn and ignore the option if not recognized
+      # So say no if there are warnings other than the usual output.
+@@ -7585,11 +7588,11 @@
+    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
+    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
+    -e 's:$: $lt_compiler_flag:'`
+-   (eval echo "\"\$as_me:7588: $lt_compile\"" >&5)
++   (eval echo "\"\$as_me:7591: $lt_compile\"" >&5)
+    (eval "$lt_compile" 2>conftest.err)
+    ac_status=$?
+    cat conftest.err >&5
+-   echo "$as_me:7592: \$? = $ac_status" >&5
++   echo "$as_me:7595: \$? = $ac_status" >&5
+    if (exit $ac_status) && test -s "$ac_outfile"; then
+      # The compiler can only warn and ignore the option if not recognized
+      # So say no if there are warnings other than the usual output.
+@@ -7690,11 +7693,11 @@
+    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
+    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
+    -e 's:$: $lt_compiler_flag:'`
+-   (eval echo "\"\$as_me:7693: $lt_compile\"" >&5)
++   (eval echo "\"\$as_me:7696: $lt_compile\"" >&5)
+    (eval "$lt_compile" 2>out/conftest.err)
+    ac_status=$?
+    cat out/conftest.err >&5
+-   echo "$as_me:7697: \$? = $ac_status" >&5
++   echo "$as_me:7700: \$? = $ac_status" >&5
+    if (exit $ac_status) && test -s out/conftest2.$ac_objext
+    then
+      # The compiler can only warn and ignore the option if not recognized
+@@ -7745,11 +7748,11 @@
+    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
+    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
+    -e 's:$: $lt_compiler_flag:'`
+-   (eval echo "\"\$as_me:7748: $lt_compile\"" >&5)
++   (eval echo "\"\$as_me:7751: $lt_compile\"" >&5)
+    (eval "$lt_compile" 2>out/conftest.err)
+    ac_status=$?
+    cat out/conftest.err >&5
+-   echo "$as_me:7752: \$? = $ac_status" >&5
++   echo "$as_me:7755: \$? = $ac_status" >&5
+    if (exit $ac_status) && test -s out/conftest2.$ac_objext
+    then
+      # The compiler can only warn and ignore the option if not recognized
+@@ -10129,7 +10132,7 @@
+   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
+   lt_status=$lt_dlunknown
+   cat > conftest.$ac_ext <<_LT_EOF
+-#line 10132 "configure"
++#line 10135 "configure"
+ #include "confdefs.h"
+ 
+ #if HAVE_DLFCN_H
+@@ -10225,7 +10228,7 @@
+   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
+   lt_status=$lt_dlunknown
+   cat > conftest.$ac_ext <<_LT_EOF
+-#line 10228 "configure"
++#line 10231 "configure"
+ #include "confdefs.h"
+ 
+ #if HAVE_DLFCN_H
+@@ -11148,6 +11151,26 @@
+ 
+ 
+ 
++
++
++
++{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for default sysroot path" >&5
++$as_echo_n "checking for default sysroot path... " >&6; }
++
++# Check whether --with-sysroot was given.
++if test "${with_sysroot+set}" = set; then :
++  withval=$with_sysroot;  pc_sysroot="$withval"
++else
++   pc_sysroot="/"
++
++fi
++
++ { $as_echo "$as_me:${as_lineno-$LINENO}: result: $pc_sysroot" >&5
++$as_echo "$pc_sysroot" >&6; }
++
++
++
++
+ #
+ # Code taken from gtk+-2.0's configure.in.
+ #
+diff -dur /tmp/tmp.mm1UzS0l5J/configure.in pkg-config/configure.in
+--- /tmp/tmp.mm1UzS0l5J/configure.in	2011-03-24 10:03:25.000000000 -0700
++++ pkg-config/configure.in	2012-05-08 13:54:03.052358574 -0700
+@@ -32,6 +32,21 @@
+ 
+ PKG_CONFIG_FIND_PC_PATH
+ 
++AC_DEFUN([PKG_CONFIG_DEFAULT_SYSROOT],
++[
++AC_MSG_CHECKING([for default sysroot path])
++AC_ARG_WITH(sysroot,
++ [  --with-sysroot          Override the default sysroot ],
++ [ pc_sysroot="$withval" ],
++ [ pc_sysroot="/" ]
++)
++ AC_MSG_RESULT([$pc_sysroot])
++ AC_SUBST([pc_sysroot])
++
++])
++
++PKG_CONFIG_DEFAULT_SYSROOT
++
+ #
+ # Code taken from gtk+-2.0's configure.in.
+ #
+diff -dur /tmp/tmp.mm1UzS0l5J/main.c pkg-config/main.c
+--- /tmp/tmp.mm1UzS0l5J/main.c	2011-03-24 10:03:25.000000000 -0700
++++ pkg-config/main.c	2012-05-08 13:54:03.072358936 -0700
+@@ -29,6 +29,8 @@
+ #include <string.h>
+ #include <ctype.h>
+ #include <stdio.h>
++#include <limits.h>
++#include <libgen.h>
+ 
+ #ifdef G_OS_WIN32
+ #define STRICT
+@@ -210,6 +212,8 @@
+   FILE *log = NULL;
+   const char *pkgname;
+   Package *pkg;
++  const char *sysroot = NULL;
++  char sysroot_buf[PATH_MAX];
+ 
+   poptContext opt_context;
+ 
+@@ -297,22 +301,51 @@
+       debug_spew ("PKG_CONFIG_DEBUG_SPEW variable enabling debug spew\n");
+     }
+ 
++  /* Configured with non-default sysroot? */
++  if (strcmp("/", PKG_CONFIG_SYSROOT) )
++    {
++      sysroot = PKG_CONFIG_SYSROOT;
++      debug_spew ("Compiled with sysroot '%s'\n", sysroot);
++
++      if (!g_path_is_absolute(sysroot))
++        {
++          char tmp[PATH_MAX];
++
++          strncpy(sysroot_buf, argv[0], sizeof(sysroot_buf) - 1);
++          sysroot_buf[sizeof(sysroot_buf) - 1] = '\0';
++
++          snprintf(tmp, sizeof(tmp), "%s/%s",
++                   dirname(sysroot_buf), PKG_CONFIG_SYSROOT);
++
++          if (!realpath(tmp, sysroot_buf))
++            {
++              debug_spew ("Failed to get realpath for '%s'\n", tmp);
++
++              /* just use "tmp" as-is */
++              strcpy(sysroot_buf, tmp);
++            }
++
++          sysroot = sysroot_buf;
++          debug_spew ("Default sysroot '%s'\n", sysroot);
++        }
++    }
++
+   search_path = getenv ("PKG_CONFIG_PATH");
+-  if (search_path) 
++  if (search_path)
+     {
+-      add_search_dirs(search_path, G_SEARCHPATH_SEPARATOR_S);
++      add_search_dirs(search_path, G_SEARCHPATH_SEPARATOR_S, NULL);
+     }
+-  if (getenv("PKG_CONFIG_LIBDIR") != NULL) 
++  if (getenv("PKG_CONFIG_LIBDIR") != NULL)
+     {
+-      add_search_dirs(getenv("PKG_CONFIG_LIBDIR"), G_SEARCHPATH_SEPARATOR_S);
++      add_search_dirs(getenv("PKG_CONFIG_LIBDIR"), G_SEARCHPATH_SEPARATOR_S, NULL);
+     }
+   else
+     {
+-      add_search_dirs(PKG_CONFIG_PC_PATH, G_SEARCHPATH_SEPARATOR_S);
++      add_search_dirs(PKG_CONFIG_PC_PATH, G_SEARCHPATH_SEPARATOR_S, sysroot);
+     }
+ 
+   pcsysrootdir = getenv ("PKG_CONFIG_SYSROOT_DIR");
+-  if (pcsysrootdir)
++  if (pcsysrootdir || (pcsysrootdir = sysroot))
+     {
+       define_global_variable ("pc_sysrootdir", pcsysrootdir);
+     }
+diff -dur /tmp/tmp.mm1UzS0l5J/Makefile.am pkg-config/Makefile.am
+--- /tmp/tmp.mm1UzS0l5J/Makefile.am	2011-03-24 10:03:25.000000000 -0700
++++ pkg-config/Makefile.am	2012-05-08 13:54:03.052358574 -0700
+@@ -29,7 +29,7 @@
+ AM_CFLAGS=@WARN_CFLAGS@
+ 
+ INCLUDES=-DPKG_CONFIG_PC_PATH="\"$(pc_path)\"" $(included_glib_includes) \
+-	$(popt_includes)
++	$(popt_includes) -DPKG_CONFIG_SYSROOT="\"$(pc_sysroot)\""
+ 
+ pkg_config_SOURCES= \
+ 	pkg.h \
+diff -dur /tmp/tmp.mm1UzS0l5J/Makefile.in pkg-config/Makefile.in
+--- /tmp/tmp.mm1UzS0l5J/Makefile.in	2011-03-24 10:03:25.000000000 -0700
++++ pkg-config/Makefile.in	2012-05-08 13:54:03.052358574 -0700
+@@ -76,7 +76,7 @@
+ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+ 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+-CCLD = $(CC)
++CCLD ?= $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+ 	$(LDFLAGS) -o $@
+@@ -265,6 +265,7 @@
+ mkdir_p = @mkdir_p@
+ oldincludedir = @oldincludedir@
+ pc_path = @pc_path@
++pc_sysroot = @pc_sysroot@
+ pdfdir = @pdfdir@
+ prefix = @prefix@
+ program_transform_name = @program_transform_name@
+@@ -296,7 +297,7 @@
+ EXTRA_DIST = $(m4_DATA) $(man_MANS) README.win32
+ AM_CFLAGS = @WARN_CFLAGS@
+ INCLUDES = -DPKG_CONFIG_PC_PATH="\"$(pc_path)\"" $(included_glib_includes) \
+-	$(popt_includes)
++	$(popt_includes) -DPKG_CONFIG_SYSROOT="\"$(pc_sysroot)\""
+ 
+ pkg_config_SOURCES = \
+ 	pkg.h \
+diff -dur /tmp/tmp.mm1UzS0l5J/parse.c pkg-config/parse.c
+--- /tmp/tmp.mm1UzS0l5J/parse.c	2011-03-24 10:03:25.000000000 -0700
++++ pkg-config/parse.c	2012-05-08 13:54:03.072358936 -0700
+@@ -198,7 +198,7 @@
+ 
+           ++p; /* past brace */
+           
+-          varval = package_get_var (pkg, varname);
++          varval = package_get_var (pkg, varname, FALSE);
+           
+           if (varval == NULL)
+             {
+diff -dur /tmp/tmp.mm1UzS0l5J/pkg.c pkg-config/pkg.c
+--- /tmp/tmp.mm1UzS0l5J/pkg.c	2011-03-24 10:03:25.000000000 -0700
++++ pkg-config/pkg.c	2012-05-08 13:54:03.072358936 -0700
+@@ -69,24 +69,38 @@
+ }
+ 
+ void
+-add_search_dirs (const char *path, const char *separator)
++add_search_dirs (const char *path, const char *separator, const char *sysroot)
+ {
+       char **search_dirs;
+       char **iter;
++      GString *str = sysroot ? g_string_new("") : NULL;
+ 
+       search_dirs = g_strsplit (path, separator, -1);
+-    
++
+       iter = search_dirs;
+       while (*iter)
+         {
++          const char *dir = *iter;
++
++          if (str)
++            {
++              /* If sysroot is specified, assume search dirs are relative to it */
++              g_string_assign(str, sysroot);
++              g_string_append(str, *iter);
++              dir = str->str;
++            }
++
+           debug_spew ("Adding directory '%s' from PKG_CONFIG_PATH\n",
+-                      *iter);
+-          add_search_dir (*iter);
+-          
++                      dir);
++          add_search_dir (dir);
+           ++iter;
+         }
+-      
++
+       g_strfreev (search_dirs);
++      if (str)
++        {
++          g_string_free(str, TRUE);
++        }
+ }
+ 
+ #ifdef G_OS_WIN32
+@@ -471,6 +485,13 @@
+   return nodups;
+ }
+ 
++static inline int
++standard_system_path(const char *str)
++{
++  return !strcmp(str, "/lib") || !strncmp(str, "/lib/", 5) ||
++         !strcmp(str, "/usr") || !strncmp(str, "/usr/", 5);
++}
++
+ static char *
+ string_list_to_string (GSList *list)
+ {
+@@ -484,7 +505,12 @@
+     if (pcsysrootdir != NULL &&
+ 	tmpstr[0] == '-' &&
+ 	(tmpstr[1] == 'I' ||
+-	 tmpstr[1] == 'L')) {
++	 tmpstr[1] == 'L') &&
++	/*
++	 * Only use sysroot for standard looking paths (e.g. /lib, /usr),
++	 * don't adjust anything else.
++	 */
++	standard_system_path(tmpstr+2)) {
+       g_string_append_c (str, '-');
+       g_string_append_c (str, tmpstr[1]);
+       g_string_append (str, pcsysrootdir);
+@@ -1235,7 +1261,8 @@
+ 
+ char *
+ package_get_var (Package *pkg,
+-                 const char *var)
++                 const char *var,
++                 gboolean use_sysroot)
+ {
+   char *varval = NULL;
+ 
+@@ -1243,7 +1270,13 @@
+     varval = g_strdup (g_hash_table_lookup (globals, var));
+   
+   if (varval == NULL && pkg->vars)
+-    varval = g_strdup (g_hash_table_lookup (pkg->vars, var));
++    {
++      const char *s = g_hash_table_lookup (pkg->vars, var);
++      if (s && use_sysroot && pcsysrootdir && standard_system_path(s))
++        varval = g_strconcat(pcsysrootdir, s, NULL);
++      else
++        varval = g_strdup(s);
++    }
+ 
+   /* Magic "pcfiledir" variable */
+   if (varval == NULL && pkg->pcfiledir && strcmp (var, "pcfiledir") == 0)
+@@ -1268,7 +1301,8 @@
+       Package *pkg = tmp->data;
+       char *var;
+ 
+-      var = package_get_var (pkg, varname);
++      /* don't use sysroot for virtual pkg-config package */
++      var = package_get_var (pkg, varname, strcmp(pkg->key, "pkg-config"));
+       
+       if (var)
+         {
+diff -dur /tmp/tmp.mm1UzS0l5J/pkg.h pkg-config/pkg.h
+--- /tmp/tmp.mm1UzS0l5J/pkg.h	2011-03-24 10:03:25.000000000 -0700
++++ pkg-config/pkg.h	2012-05-08 13:54:03.072358936 -0700
+@@ -103,13 +103,14 @@
+ char *   packages_get_other_cflags (GSList     *pkgs);
+ char *   packages_get_all_cflags   (GSList     *pkgs);
+ char *   package_get_var           (Package    *pkg,
+-                                    const char *var);
++                                    const char *var,
++                                    gboolean use_sysroot);
+ char *   packages_get_var          (GSList     *pkgs,
+                                     const char *var);
+ 
+ 
+ void add_search_dir (const char *path);
+-void add_search_dirs (const char *path, const char *separator);
++void add_search_dirs (const char *path, const char *separator, const char *sysroot);
+ void package_init (void);
+ int compare_versions (const char * a, const char *b);
+ gboolean version_test (ComparisonType comparison,

@@ -1,0 +1,87 @@
+Based on the following revisions:
+Add file missing from 2.21 release tarball (pulled from upstream).
+Binutils 2.21
+diff -dur /tmp/tmp.zHsDGPFmTH/bfd/Makefile.in binutils/bfd/Makefile.in
+--- /tmp/tmp.zHsDGPFmTH/bfd/Makefile.in	2011-02-08 00:14:14.000000000 -0800
++++ binutils/bfd/Makefile.in	2012-05-08 13:53:54.742208163 -0700
+@@ -124,7 +124,7 @@
+ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+ 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+-CCLD = $(CC)
++CCLD ?= $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+ 	$(LDFLAGS) -o $@
+diff -dur /tmp/tmp.zHsDGPFmTH/binutils/Makefile.in binutils/binutils/Makefile.in
+--- /tmp/tmp.zHsDGPFmTH/binutils/Makefile.in	2011-02-08 00:14:14.000000000 -0800
++++ binutils/binutils/Makefile.in	2012-05-08 13:53:54.872210516 -0700
+@@ -181,7 +181,7 @@
+ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+ 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+-CCLD = $(CC)
++CCLD ?= $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+ 	$(LDFLAGS) -o $@
+diff -dur /tmp/tmp.zHsDGPFmTH/gas/Makefile.in binutils/gas/Makefile.in
+--- /tmp/tmp.zHsDGPFmTH/gas/Makefile.in	2011-02-08 00:14:14.000000000 -0800
++++ binutils/gas/Makefile.in	2012-05-08 13:53:54.982212507 -0700
+@@ -100,7 +100,7 @@
+ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+ 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+-CCLD = $(CC)
++CCLD ?= $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+ 	$(LDFLAGS) -o $@
+diff -dur /tmp/tmp.zHsDGPFmTH/gold/Makefile.in binutils/gold/Makefile.in
+--- /tmp/tmp.zHsDGPFmTH/gold/Makefile.in	2011-02-08 00:14:14.000000000 -0800
++++ binutils/gold/Makefile.in	2012-05-08 13:53:55.362219385 -0700
+@@ -124,7 +124,7 @@
+ am__mv = mv -f
+ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+ 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+-CCLD = $(CC)
++CCLD ?= $(CC)
+ LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+ 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+diff -dur /tmp/tmp.zHsDGPFmTH/gprof/Makefile.in binutils/gprof/Makefile.in
+--- /tmp/tmp.zHsDGPFmTH/gprof/Makefile.in	2011-02-08 00:14:14.000000000 -0800
++++ binutils/gprof/Makefile.in	2012-05-08 13:53:55.402220109 -0700
+@@ -88,7 +88,7 @@
+ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+ 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+-CCLD = $(CC)
++CCLD ?= $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+ 	$(LDFLAGS) -o $@
+diff -dur /tmp/tmp.zHsDGPFmTH/ld/Makefile.in binutils/ld/Makefile.in
+--- /tmp/tmp.zHsDGPFmTH/ld/Makefile.in	2011-02-08 00:14:14.000000000 -0800
++++ binutils/ld/Makefile.in	2012-05-08 13:53:55.452221014 -0700
+@@ -102,7 +102,7 @@
+ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+ 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+-CCLD = $(CC)
++CCLD ?= $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+ 	$(LDFLAGS) -o $@
+diff -dur /tmp/tmp.zHsDGPFmTH/opcodes/Makefile.in binutils/opcodes/Makefile.in
+--- /tmp/tmp.zHsDGPFmTH/opcodes/Makefile.in	2011-02-08 00:14:14.000000000 -0800
++++ binutils/opcodes/Makefile.in	2012-05-08 13:53:55.652224634 -0700
+@@ -112,7 +112,7 @@
+ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+ 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+-CCLD = $(CC)
++CCLD ?= $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+ 	$(LDFLAGS) -o $@
